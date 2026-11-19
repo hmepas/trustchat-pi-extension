@@ -153,8 +153,11 @@ function modelSuffixes(ids: readonly string[]): Map<string, string> {
 /* pi models                                                           */
 /* ------------------------------------------------------------------ */
 
-/** Maps one resolved model onto pi's ProviderModelConfig. */
-function toPiModel(id: string, meta: ModelMeta, suffix: string): ChatModelConfig {
+/**
+ * Maps one resolved model onto pi's ProviderModelConfig. `id` is what the user
+ * selects in pi; `gatewayID` is what the gateway expects in the request.
+ */
+function toPiModel(id: string, gatewayID: string, meta: ModelMeta, suffix: string): ChatModelConfig {
   const input: ("text" | "image")[] = meta.input.includes("image") ? ["text", "image"] : ["text"]
   return {
     type: "chat",
@@ -168,6 +171,9 @@ function toPiModel(id: string, meta: ModelMeta, suffix: string): ChatModelConfig
     maxTokens: meta.outputLimit,
     // GLM Flash rejects Pi's default developer role for reasoning models.
     compat: { maxTokensField: "max_tokens", supportsDeveloperRole: false },
+    // pi applies samplingParams last, over the named request fields, so this
+    // puts the full gateway id back into the request's `model`.
+    ...(id !== gatewayID ? { samplingParams: { model: gatewayID } } : {}),
   }
 }
 
@@ -191,6 +197,9 @@ function basenameMeta(
  * Builds the pi model list from normalized ids (see `parseModelIDs`); the
  * output keeps the input order.
  *
+ * The pi model id is the basename ("corp-key144/glm-5.3" -> "glm-5.3") when
+ * no other gateway id shares it; colliding ids keep the full gateway id.
+ *
  * When a catalog snapshot is available, models whose basename resolves to
  * nothing in models.dev are skipped (pi has no "disabled" flag; the OpenCode
  * plugin disabled them). Without a catalog every model is kept with defaults.
@@ -201,6 +210,8 @@ export function buildModels(
   log: (message: string) => void = () => {},
 ): ChatModelConfig[] {
   const suffixes = modelSuffixes(ids)
+  const basenameCounts = new Map<string, number>()
+  for (const id of ids) basenameCounts.set(basenameOf(id), (basenameCounts.get(basenameOf(id)) ?? 0) + 1)
   const metas = new Map<string, ModelMeta | undefined>()
   const models: ChatModelConfig[] = []
 
@@ -208,7 +219,9 @@ export function buildModels(
     const basename = basenameOf(id)
     if (!metas.has(basename)) metas.set(basename, basenameMeta(basename, catalog, log))
     const meta = metas.get(basename)
-    if (meta) models.push(toPiModel(id, meta, suffixes.get(id) ?? ""))
+    if (!meta) continue
+    const piID = basename && basenameCounts.get(basename) === 1 ? basename : id
+    models.push(toPiModel(piID, id, meta, suffixes.get(id) ?? ""))
   }
   return models
 }

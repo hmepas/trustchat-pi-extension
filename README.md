@@ -1,8 +1,26 @@
 # TrustChat provider for pi
 
 Порт плагина `@trustchat/opencode-provider@0.3.2` (OpenCode V2) на extension API
-pi coding agent. Расположение — глобальное (`~/.pi/agent/extensions/trustchat/`),
-загружается автоматически, hot-reload через `/reload`.
+pi coding agent. Проверено на pi 1.5.2.
+
+## Установка
+
+1. Положить каталог расширения в `~/.pi/agent/extensions/trustchat/` — pi
+   подхватывает `index.ts` оттуда автоматически. Удобнее симлинком на
+   рабочую копию:
+
+   ```bash
+   ln -s /path/to/trustchat-pi-extension ~/.pi/agent/extensions/trustchat
+   ```
+
+   Зависимости ставить не нужно (`npm install` не требуется).
+2. Задать ключ: в pi выполнить `/login` → **TrustChat** → ввести API key,
+   либо выставить `TRUSTCHAT_API_KEY`.
+3. Запустить `pi` интерактивно: список моделей подтянется в фоне и появится
+   в `/model`. После этого он виден и в `pi --list-models trustchat`.
+
+После правок в коде — `/reload` в открытой сессии. Разовая проверка без
+установки: `pi -e /path/to/trustchat-pi-extension/index.ts`.
 
 ## Что делает
 
@@ -23,6 +41,9 @@ pi coding agent. Расположение — глобальное (`~/.pi/agent
 - Ошибка сети, не-2xx или ответ `/models` неизвестного формата (например,
   `{"error": ...}`) не стирают список: pi оставляет предыдущий. Пустой массив
   (`{"data": []}`) — валидный пустой список.
+- Id модели в pi — без префикса шлюза: `corp-key144/glm-5.3` выбирается как
+  `glm-5.3`, в запрос уходит полный id. Если один basename приходит под
+  несколькими префиксами, такие модели сохраняют полный id.
 - Метаданные (имена, лимиты, reasoning, image-input) — из каталога models.dev;
   кэш: `~/Library/Caches/pi/trustchat/models.json` (macOS).
   Без каталога: имя = id, контекст 128K, вывод 16K.
@@ -54,7 +75,7 @@ pi coding agent. Расположение — глобальное (`~/.pi/agent
 ## Использование
 
 ```bash
-pi --provider trustchat --model corp-key144/glm-5.3
+pi --model trustchat/glm-5.3
 pi --list-models trustchat     # проверка списка
 ```
 

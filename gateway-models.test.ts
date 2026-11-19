@@ -55,11 +55,11 @@ describe("buildModels suffix ladder", () => {
   })
 
   test("a 2-segment id always shows its role", () => {
-    assert.deepEqual(names(["coder/glm-5"]), { "coder/glm-5": "GLM 5 (coder)" })
+    assert.deepEqual(names(["coder/glm-5"]), { "glm-5": "GLM 5 (coder)" })
   })
 
   test("a unique 3-segment id shows no suffix", () => {
-    assert.deepEqual(names(["coder/fast/glm-5"]), { "coder/fast/glm-5": "GLM 5" })
+    assert.deepEqual(names(["coder/fast/glm-5"]), { "glm-5": "GLM 5" })
   })
 
   test("3-segment ids escalate only on collision", () => {
@@ -76,6 +76,26 @@ describe("buildModels suffix ladder", () => {
       "coder/glm-5": "GLM 5 (coder)",
       "coder/fast/glm-5": "GLM 5 (fast)",
     })
+  })
+})
+
+describe("buildModels pi model ids", () => {
+  test("a unique basename becomes the pi id; the request keeps the gateway id", () => {
+    const [model] = buildModels(["corp-key144/glm-5"], catalog)
+    assert.equal(model.id, "glm-5")
+    assert.deepEqual(model.samplingParams, { model: "corp-key144/glm-5" })
+  })
+
+  test("an id without a prefix needs no request override", () => {
+    const [model] = buildModels(["glm-5"], catalog)
+    assert.equal(model.id, "glm-5")
+    assert.equal(model.samplingParams, undefined)
+  })
+
+  test("ids sharing a basename keep their full gateway ids", () => {
+    const models = buildModels(["a/glm-5", "b/glm-5"], catalog)
+    assert.deepEqual(models.map((model) => model.id), ["a/glm-5", "b/glm-5"])
+    for (const model of models) assert.equal(model.samplingParams, undefined)
   })
 })
 
